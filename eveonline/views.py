@@ -7,7 +7,7 @@ from eveonline.forms import UpdateKeyForm
 from eveonline.managers import EveManager
 from authentication.managers import AuthServicesInfoManager
 from services.managers.eve_api_manager import EveApiManager
-from eveonline.models import EveApiKeyPair
+from eveonline.models import EveApiKeyPair, EveCharacter
 from authentication.models import AuthServicesInfo
 from authentication.tasks import set_state
 from eveonline.tasks import refresh_api
@@ -72,11 +72,14 @@ def add_api_key(request):
 @login_required
 @token_required(new=True)
 def api_sso_validate(request, tokens, api_id):
+    logger.debug('api_sso_validate called by user %s for api %s' % (request.user, api_id))
     api = get_object_or_404(EveApiKeyPair, api_id=api_id)
-    if api.owner:
+    if api.user:
+        logger.warning('User %s attempting to take ownership of api %s from %s' % (request.user, api_id, api.user))
         messages.warning(request, 'API %s already claimed by user %s' % (api_id, api.user))
         return redirect('auth_api_key_management')
     token = tokens[0]
+    logger.debug('API %s has no owner. Checking if token for %s matches.' % (api_id, token.character_name))
     if EveCharacter.objects.filter(api_id=api_id).filter(character_id=token.character_id).exists():
         api.user = request.user
         api.save()
@@ -84,8 +87,8 @@ def api_sso_validate(request, tokens, api_id):
         messages.success(request, 'Confirmed ownership of API %s' % api.api_key)
         return redirect('auth_api_key_management')
     else:
-        messages.warning('%s not found on API %s. Please SSO as a character on the API.' % (token.character_name, api.api_key))
-        return render(request, 'registered/apisso.html', context={'api':api})
+        messages.warning(request, '%s not found on API %s. Please SSO as a character on the API.' % (token.character_name, api.api_id))
+    return render(request, 'registered/apisso.html', context={'api':api})
     
 
 @login_required
