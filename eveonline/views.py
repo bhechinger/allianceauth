@@ -80,11 +80,12 @@ def api_sso_validate(request, tokens, api_id):
         return redirect('auth_api_key_management')
     token = tokens[0]
     logger.debug('API %s has no owner. Checking if token for %s matches.' % (api_id, token.character_name))
-    if EveCharacter.objects.filter(api_id=api_id).filter(character_id=token.character_id).exists():
+    characters = EveApiManager.get_characters_from_api(api.api_id, api.api_key).result
+    if token.character_id in characters:
         api.user = request.user
         api.save()
-        EveCharacter.objects.filter(api_id=api.api_id).update(user=request.user)
-        messages.success(request, 'Confirmed ownership of API %s' % api.api_key)
+        EveCharacter.objects.filter(character_id__in=characters).update(user=request.user, api_id=api_id)
+        messages.success(request, 'Confirmed ownership of API %s' % api.api_id)
         return redirect('auth_api_key_management')
     else:
         messages.warning(request, '%s not found on API %s. Please SSO as a character on the API.' % (token.character_name, api.api_id))
