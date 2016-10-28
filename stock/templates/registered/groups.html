@@ -12,7 +12,7 @@
         <h1 class="page-header text-center">{% trans "Available Groups" %}</h1>
         {% if STATE == MEMBER_STATE or user.is_superuser %}
             {% if pairs %}
-            <table class="table table-bordered">
+            <table class="table">
                 <tr>
                     <th class="text-center">{% trans "GroupName" %}</th>
                     <th class="text-center">{% trans "GroupDesc" %}</th>
