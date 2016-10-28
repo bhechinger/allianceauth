@@ -54,7 +54,6 @@ def add_api_key(request):
                 messages.success(request, 'Added API key %s to your account.' % form.cleaned_data['api_id'])
                 auth = AuthServicesInfo.objects.get_or_create(user=request.user)[0]
                 if not auth.main_char_id:
-                    messages.warning(request, 'Please select a main character.')
                     return redirect('auth_characters')
                 return redirect("/api_key_management/")
             else:
@@ -86,6 +85,9 @@ def api_sso_validate(request, tokens, api_id):
         api.save()
         EveCharacter.objects.filter(character_id__in=characters).update(user=request.user, api_id=api_id)
         messages.success(request, 'Confirmed ownership of API %s' % api.api_id)
+        auth, c = AuthServicesInfo.objects.get_or_create(user=request.user)
+        if not auth.main_char_id:
+            return redirect('auth_characters')
         return redirect('auth_api_key_management')
     else:
         messages.warning(request, '%s not found on API %s. Please SSO as a character on the API.' % (token.character_name, api.api_id))
@@ -104,21 +106,16 @@ def api_key_management_view(request):
 def api_key_removal(request, api_id):
     logger.debug("api_key_removal called by user %s for api id %s" % (request.user, api_id))
     authinfo = AuthServicesInfo.objects.get_or_create(user=request.user)[0]
-    # Check if our users main id is in the to be deleted characters
-    characters = EveManager.get_characters_by_owner_id(request.user.id)
-    if characters is not None:
-        for character in characters:
-            if character.character_id == authinfo.main_char_id:
-                if character.api_id == api_id:
-                    messages.warning(request,
-                                     'You have deleted your main character. Please select a new main character.')
-                    set_state(request.user)
-
     EveManager.delete_api_key_pair(api_id, request.user.id)
     EveManager.delete_characters_by_api_id(api_id, request.user.id)
     messages.success(request, 'Deleted API key %s' % api_id)
     logger.info("Succesfully processed api delete request by user %s for api %s" % (request.user, api_id))
-    return redirect("auth_api_key_management")
+    if EveCharacter.objects.filter(character_id=authinfo.main_char_id).exists():
+        return redirect("auth_api_key_management")
+    else:
+        authinfo.main_char_id = None
+        authinfo.save()
+        return redirect("auth_characters")
 
 
 @login_required
