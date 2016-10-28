@@ -115,6 +115,7 @@ def api_key_removal(request, api_id):
     else:
         authinfo.main_char_id = None
         authinfo.save()
+        set_state(request.user)
         return redirect("auth_characters")
 
 
@@ -131,8 +132,8 @@ def main_character_change(request, char_id):
     logger.debug("main_character_change called by user %s for character id %s" % (request.user, char_id))
     if EveManager.check_if_character_owned_by_user(char_id, request.user):
         AuthServicesInfoManager.update_main_char_id(char_id, request.user)
-        set_state(request.user)
         messages.success(request, 'Changed main character ID to %s' % char_id)
+        set_state(request.user)
         return redirect("auth_characters")
     messages.error(request, 'Failed to change main character - selected character is not owned by your account.')
     return redirect("auth_characters")
